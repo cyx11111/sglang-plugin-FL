@@ -360,6 +360,18 @@ def _make_dispatch_hook(config: dict = None):
 # ─── FlagGems setup ───────────────────────────────────────────────────────────
 
 
+def _maybe_prepare_sunrise_before_flaggems() -> None:
+    """Install Sunrise import-time compatibility before FlagGems registration."""
+    try:
+        import torch
+
+        if not (hasattr(torch, "ptpu") and bool(torch.ptpu.is_available())):
+            return
+    except Exception:
+        return
+    import sglang_fl.dispatch.backends.vendor.sunrise  # noqa: F401
+
+
 def _setup_flaggems(config: dict = None):
     use_fg = _parse_bool(os.environ.get("USE_FLAGGEMS", "1"), default=True)
 
@@ -491,6 +503,11 @@ def _setup_communicator_hooks():
             try:
                 from sglang_fl.distributed.communicator import CommunicatorFL
 
+                # GroupCoordinator does not initialize a PTPU device itself.
+                if hasattr(torch, "ptpu") and torch.ptpu.is_available():
+                    local_rank = getattr(self, "local_rank", 0)
+                    self.device = torch.device(f"ptpu:{local_rank}")
+
                 self.fl_communicator = CommunicatorFL(
                     cpu_group=self.cpu_group,
                     device=self.device,
@@ -537,6 +554,17 @@ def _setup_communicator_hooks():
         if comm is not None and not comm.disabled:
             comm.all_gather(output, input_)
             return
+        return original_fn(self, output, input_)
+
+    # Bypass SGLang's CUDA-only reg_* custom ops on PTPU.
+    def _all_gather_into_tensor_public_hook(original_fn, self, output, input_):
+        if getattr(self, "fl_communicator", None) is not None:
+            return self._all_gather_into_tensor(output, input_)
+        return original_fn(self, output, input_)
+
+    def _reduce_scatter_tensor_public_hook(original_fn, self, output, input_):
+        if getattr(self, "fl_communicator", None) is not None:
+            return self._reduce_scatter_tensor(output, input_)
         return original_fn(self, output, input_)
 
     # ── reduce_scatterv hook ──
@@ -675,6 +703,16 @@ def _setup_communicator_hooks():
         HookType.AROUND,
     )
     HookRegistry.register(
+        f"{_GC_TARGET}.all_gather_into_tensor",
+        _all_gather_into_tensor_public_hook,
+        HookType.AROUND,
+    )
+    HookRegistry.register(
+        f"{_GC_TARGET}.reduce_scatter_tensor",
+        _reduce_scatter_tensor_public_hook,
+        HookType.AROUND,
+    )
+    HookRegistry.register(
         f"{_GC_TARGET}.reduce_scatterv", _reduce_scatterv_hook, HookType.AROUND
     )
     HookRegistry.register(
@@ -697,7 +735,8 @@ def _setup_communicator_hooks():
 
     logger.info(
         "CommunicatorFL AROUND hooks registered on GroupCoordinator "
-        "(12 hooks: init + 8 collectives + broadcast_tensor_dict + send/recv_tensor_dict)"
+        "(14 hooks: init + 8 collectives + 2 public reg_* bypasses + "
+        "broadcast_tensor_dict + send/recv_tensor_dict)"
     )
 
 
@@ -759,6 +798,9 @@ def load_plugin():
 
     # 0. Build unified config (YAML + env vars)
     config = _build_config()
+
+    # 0.5 Sunrise/PTPU: stub NVIDIA-only sgl_kernel before SGLang imports it.
+    _maybe_prepare_sunrise_before_flaggems()
 
     # 1. FlagGems ATen ops
     _setup_flaggems(config)

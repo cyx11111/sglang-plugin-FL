@@ -50,7 +50,8 @@ def get_platform_name() -> str:
     Detect the current hardware platform.
 
     Returns:
-        Platform name string: 'ascend', 'musa', 'iluvatar', 'nvidia', or 'unknown'
+        Platform name string: 'ascend', 'musa', 'sunrise', 'iluvatar',
+        'nvidia', or 'unknown'
     """
     try:
         import torch
@@ -62,6 +63,8 @@ def get_platform_name() -> str:
             return "musa"
         if hasattr(torch, "gcu") and torch.gcu.is_available():
             return "gcu"
+        if hasattr(torch, "ptpu") and torch.ptpu.is_available():
+            return "sunrise"
         if hasattr(torch, "corex") and torch.cuda.is_available():
             return "iluvatar"
         if "metax" in torch.__version__ and torch.cuda.is_available():

@@ -52,6 +52,7 @@ _DIST_BACKEND_MAP = {
     "enflame": "eccl",
     "tsingmicro": "tccl",
     "hygon": "nccl",
+    "sunrise": "pccl",
 }
 
 # Attention backend mapping: vendor_name -> default backend
@@ -66,6 +67,7 @@ _ATTN_BACKEND_MAP = {
     "iluvatar": "triton",
     "hygon": "hcu",
     "tsingmicro": "txda_oot",
+    "sunrise": "sunrise",
 }
 
 
@@ -234,6 +236,12 @@ class PlatformFL(SRTPlatform):
             )
 
             return NPUGraphRunner
+        if self._device_type == "ptpu":
+            from sglang_fl.dispatch.backends.vendor.sunrise.impl.runtime.graph_runner import (
+                PtpuGraphRunner,
+            )
+
+            return PtpuGraphRunner
         from sglang.srt.model_executor.cuda_graph_runner import CudaGraphRunner
 
         return CudaGraphRunner
@@ -295,14 +303,22 @@ class PlatformFL(SRTPlatform):
         - musa: torch_musa proxies torch.cuda.CUDAGraph, so the default
                 CudaGraphRunner works unchanged
         - gcu:  CudaGraphRunner overrides _capture_graph
+        - ptpu: torch.ptpu.PTPUGraph via PtpuGraphRunner
         """
-        return self._device_type in ("cuda", "npu", "musa", "gcu")
+        return self._device_type in ("cuda", "npu", "musa", "gcu", "ptpu")
 
     def support_piecewise_cuda_graph(self) -> bool:
         return self._device_type == "cuda"
 
     def is_pin_memory_available(self) -> bool:
-        return self._device_type in ("cuda", "npu", "xpu", "musa", "tsingmicro")
+        return self._device_type in (
+            "cuda",
+            "npu",
+            "xpu",
+            "musa",
+            "tsingmicro",
+            "ptpu",
+        )
 
     def supports_fp8(self) -> bool:
         if self._device_type == "cuda":
