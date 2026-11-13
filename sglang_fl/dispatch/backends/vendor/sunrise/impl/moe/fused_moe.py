@@ -4,7 +4,7 @@
 
 Unpacks the sglang dispatch output and routes by the layer's weights:
   * BF16 / unquantized (no ``w2`` scale): ``fused_moe_bf16.py``
-  * block-INT8 (``w2_weight_scale_inv`` set): ``fused_moe_int8.py``
+  * compressed-tensors W8A8 requantized to blocks: ``fused_moe_int8.py``
 """
 
 from __future__ import annotations
@@ -35,31 +35,13 @@ def _moe_config(obj):
     return None
 
 
-def _first_attr(obj, names):
-    for name in names:
-        value = getattr(obj, name, None)
-        if value is not None:
-            return value
-    return None
-
-
-def _layer_quant_tensors(obj, layer: torch.nn.Module):
-    """Pull optional INT8 scales / block_shape from the MoE layer when present.
-
-    sglang's ``BlockInt8MoEMethod`` registers ``w13_weight_scale_inv`` /
-    ``w2_weight_scale_inv`` and keeps the block size on its quant config.
-    """
-    w13_scale = _first_attr(
-        layer, ("w13_weight_scale_inv", "w13_weight_scale", "w13_scale")
+def _layer_quant_tensors(layer: torch.nn.Module):
+    """Pull the compressed-tensors block-requantization state when present."""
+    return (
+        getattr(layer, "w13_weight_scale", None),
+        getattr(layer, "w2_weight_scale", None),
+        getattr(layer, "block_shape", None),
     )
-    w2_scale = _first_attr(layer, ("w2_weight_scale_inv", "w2_weight_scale", "w2_scale"))
-    a13_scale = _first_attr(layer, ("w13_input_scale", "a13_scale"))
-    a2_scale = _first_attr(layer, ("w2_input_scale", "a2_scale"))
-    block_shape = getattr(layer, "block_shape", None)
-    if block_shape is None:
-        quant_config = getattr(obj, "quant_config", None)
-        block_shape = getattr(quant_config, "weight_block_size", None)
-    return w13_scale, w2_scale, a13_scale, a2_scale, block_shape
 
 
 def fused_moe_sunrise(
@@ -68,11 +50,11 @@ def fused_moe_sunrise(
     dispatch_output,
 ):
     """
-    PTPU fused MoE expert path for UnquantizedFusedMoEMethod OOT dispatch
-    and for SunriseBlockInt8MoEMethod.apply.
+    PTPU fused MoE expert path for unquantized and block-requantized
+    compressed-tensors W8A8 layers.
 
     Args:
-        obj: UnquantizedFusedMoEMethod / SunriseBlockInt8MoEMethod instance
+        obj: quantization method instance
         layer: MoE layer (w13_weight / w2_weight, optional INT8 scales)
         dispatch_output: StandardDispatchOutput (hidden_states + topk_output)
 
@@ -101,9 +83,7 @@ def fused_moe_sunrise(
 
     w13 = layer.w13_weight
     w2 = layer.w2_weight
-    w13_scale, w2_scale, _a13_scale, _a2_scale, block_shape = _layer_quant_tensors(
-        obj, layer
-    )
+    w13_scale, w2_scale, block_shape = _layer_quant_tensors(layer)
 
     expert_parallel = getattr(layer, "moe_ep_size", 1) > 1
     if w2_scale is None:

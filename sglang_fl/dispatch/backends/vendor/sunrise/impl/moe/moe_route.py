@@ -4,10 +4,9 @@
 
 * ``gather_rows``: after ``moe_sort``, one pass that gathers each
   expert-sorted entry's INT8 row + scales and writes the inverse permutation.
-  Replaces ``moe_expand_permute`` + a separate scale ``index_select``
-  (0.30 vs 0.56 ms at 8192 tokens, top-8).
+  Replaces ``moe_expand_permute`` + a separate scale ``index_select``.
 * ``weighted_reduce``: ``out[t] = sum_k w[t, k] * y[inv[t * top_k + k]]``.
-  Replaces ``moe_reduce`` (0.23 vs 0.38 ms at 8192 tokens).
+  Replaces ``moe_reduce``.
 
 Row indices are clamped to their buffers. ``weighted_reduce`` also serves
 expert-parallel MoE for any hidden size with a power-of-two factor >= 32.

@@ -2,12 +2,11 @@
 """GDN output norm ``rms_norm(x) * w * silu(z)`` in one row-wise pass.
 
 The previous sunrise path ran the vendor ``rms_norm``, ``F.silu(z)`` and a
-multiply: three passes over ``[T * HV, 128]`` (~0.57 ms per layer at TP1 /
-8192 tokens). Here each 128-element row is normalised and gated in fp32 with
-a single bf16 rounding, as in FLA's ``rms_norm_gated`` kernel (closer to an
-fp32 reference than the 3-op path: 1.7e-3 vs 2.9e-3). A program walks
-``rows_per_prog`` rows (1-D vectors, 1 warp). Used for prefill-sized inputs
-only (TP1 0.48 -> 0.20 ms, TP4 0.13 -> 0.05 ms at 8192 tokens).
+multiply: three passes over ``[T * HV, 128]``. Here each 128-element row 
+is normalised and gated in fp32 with a single bf16 rounding, as in FLA's 
+``rms_norm_gated`` kernel (closer to an fp32 reference than the 3-op path). 
+A program walks ``rows_per_prog`` rows  (1-D vectors, 1 warp). 
+Used for prefill-sized inputs only
 
 ``rms_norm_gated_heads`` takes ``z`` as the ``[T, heads * D]`` column slice of
 the qkvz projection (row stride = projection width): row ``t * heads + h``

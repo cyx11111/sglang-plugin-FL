@@ -4,7 +4,7 @@
 
 Replacement for sglang's ``apply_w8a8_block_int8_linear``. Weights are
 ``[N, K]`` int8 with one FP32 dequant scale per ``[block_n, block_k]`` tile
-(the checkpoint's ``weight_scale_inv``).
+(generated when channelwise compressed-tensors weights are requantized).
 """
 
 from __future__ import annotations

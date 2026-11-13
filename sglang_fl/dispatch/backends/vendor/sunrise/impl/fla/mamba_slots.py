@@ -1,11 +1,5 @@
 # Copyright (c) 2026 BAAI. All rights reserved.
-"""Clearing mamba pool slots on PTPU.
-
-``MambaPool.alloc`` zeroes a new slot with ``state[:, idx] = 0`` (index_put
-along dim 1). On PTPU that runs at ~0.5 GB/s: 134 ms of device time per
-request for the Qwen3.6 TP1 conv + SSM state (61 MB), i.e. ~540 ms per
-4-request prefill batch, which the next schedule-stream copy waits for.
-"""
+"""Clearing mamba pool slots on PTPU."""
 
 from __future__ import annotations
 

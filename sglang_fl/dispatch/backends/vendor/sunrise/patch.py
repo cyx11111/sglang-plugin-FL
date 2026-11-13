@@ -30,7 +30,6 @@ def apply_sunrise_patches():
     patch_bf16_moe_weight_layout()
     patch_vocab_embedding_eager()
     patch_compressed_tensors()
-    patch_blockwise_int8()
 
 
 def apply_sunrise_load_patches():
@@ -129,15 +128,6 @@ def patch_vocab_embedding_eager() -> None:
     )
 
     patch_vocab_embedding_eager_for_sunrise()
-
-
-def patch_blockwise_int8() -> None:
-    # blockwise_int8 checkpoints run on PTPU INT8 kernels.
-    from .patches.quantization.compressed_tensors import (
-        patch_blockwise_int8_for_sunrise,
-    )
-
-    patch_blockwise_int8_for_sunrise()
 
 
 def patch_compressed_tensors() -> None:

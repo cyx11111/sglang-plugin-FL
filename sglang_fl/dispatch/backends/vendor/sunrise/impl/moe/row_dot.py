@@ -1,11 +1,7 @@
 # Copyright (c) 2026 BAAI. All rights reserved.
 """``sigmoid(x @ w.T)`` for a ``[1, H]`` gate (Qwen2 / Qwen3.5 MoE ``shared_expert_gate``).
 
-The bf16 N=1 GEMM plus sigmoid takes ~0.11 ms at 8192 x 2048 on PTPU, while
-reading ``x`` takes ~0.02 ms. A program reduces ``ROWS`` rows (4 warps per
-row, as in ``_rmsnorm_triton``), rounds each logit to the output dtype like
-the GEMM output, applies sigmoid in fp32 and stores the ``ROWS`` gates as one
-vector. Used for prefill-sized inputs only.
+ Used for prefill-sized inputs only.
 """
 
 from __future__ import annotations

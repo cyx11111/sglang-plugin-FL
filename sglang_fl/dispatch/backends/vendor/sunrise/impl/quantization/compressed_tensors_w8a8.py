@@ -6,7 +6,7 @@ scheme is NPU-only. PTPU routes both Dense and MoE through its native Triton
 INT8-MMA paths while retaining the checkpoint's ``[N, 1]`` FP32 scales.
 
 The schemes are selected only by ``patches/compressed_tensors.py`` on Sunrise,
-so blockwise_int8 and every non-Sunrise platform are unaffected.
+so every non-Sunrise platform is unaffected.
 """
 
 from __future__ import annotations

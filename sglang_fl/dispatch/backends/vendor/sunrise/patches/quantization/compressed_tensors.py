@@ -4,7 +4,7 @@
 Upstream checks CUDA compute capability even on an out-of-tree device, and
 only exposes fused-MoE W8A8 on NPU.  Replace only the dynamic-token,
 channel-weight INT8 schemes. Other compressed-tensors schemes keep their
-upstream selection and blockwise_int8 uses a separate quantization config.
+upstream selection.
 """
 
 from __future__ import annotations
@@ -15,36 +15,6 @@ from compressed_tensors.quantization import QuantizationStrategy
 
 logger = logging.getLogger(__name__)
 _compressed_tensors_patched = False
-_blockwise_int8_patched = False
-
-
-def patch_blockwise_int8_for_sunrise() -> None:
-    """Route SGLang's blockwise INT8 config to the PTPU implementation."""
-    global _blockwise_int8_patched
-    if _blockwise_int8_patched:
-        return
-
-    import sglang.srt.layers.linear as linear
-    import sglang.srt.layers.quantization as quantization
-
-    from ...impl.quantization.blockwise_int8 import (
-        SunriseBlockInt8Config,
-        SunriseBlockInt8LinearMethod,
-    )
-
-    for table_name in ("BASE_QUANTIZATION_METHODS", "QUANTIZATION_METHODS"):
-        table = getattr(quantization, table_name, None)
-        if isinstance(table, dict):
-            table["blockwise_int8"] = SunriseBlockInt8Config
-
-    name = SunriseBlockInt8LinearMethod.__name__
-    if name not in linear.WEIGHT_LOADER_V2_SUPPORTED:
-        linear.WEIGHT_LOADER_V2_SUPPORTED.append(name)
-
-    _blockwise_int8_patched = True
-    logger.info(
-        "sunrise: blockwise_int8 -> SunriseBlockInt8Config (PTPU kernels)"
-    )
 
 
 def patch_compressed_tensors_for_sunrise() -> None:
