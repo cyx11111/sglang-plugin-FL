@@ -39,8 +39,6 @@ def apply_sunrise_load_patches():
         return
     _load_patches_applied = True
 
-    # Must run first: serve imports memory_pool_host -> NVIDIA sgl_kernel.
-    patch_sgl_kernel_stub()
     patch_rotary_embedding_init()
     patch_layernorm_gated()
     patch_mm_image_processor_device()
@@ -138,12 +136,6 @@ def patch_compressed_tensors() -> None:
     )
 
     patch_compressed_tensors_for_sunrise()
-
-
-def patch_sgl_kernel_stub() -> None:
-    from .patches.runtime.sgl_kernel_stub import patch_sgl_kernel_stub_for_sunrise
-
-    patch_sgl_kernel_stub_for_sunrise()
 
 
 def patch_rotary_embedding_init() -> None:
